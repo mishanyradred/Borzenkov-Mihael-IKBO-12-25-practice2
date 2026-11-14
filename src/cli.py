@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from .registry import NpmRegistry
 from .version import VERSION
 
 NPM_NAME = re.compile(r"(?:@[a-z0-9_.-]+/)?[a-z0-9][a-z0-9_.-]*")
@@ -59,9 +60,17 @@ def validate(parser, options):
 
 
 def main():
-    """Print the validated settings for the configuration prototype."""
-    for name, value in vars(parse_args()).items():
-        print(f"{name}={value}")
+    """Print direct dependencies for the registry prototype."""
+    options = parse_args()
+    try:
+        if options.test:
+            raise ValueError("test repositories are supported from stage 3")
+        registry = NpmRegistry(options.repository)
+        package = (options.package, options.version)
+        for name, spec in sorted(registry.dependencies(package).items()):
+            print(f"{name}: {spec}")
+    except ValueError as error:
+        raise SystemExit(f"error: {error}") from error
 
 
 if __name__ == "__main__":

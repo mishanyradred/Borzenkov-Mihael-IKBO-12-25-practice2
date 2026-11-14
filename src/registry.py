@@ -44,3 +44,23 @@ class NpmRegistry:
         dependencies = metadata.get("dependencies", {})
         optional = metadata.get("optionalDependencies", {})
         return dependencies | optional
+
+    def neighbors(self, package):
+        """Resolve each declared dependency against registry versions."""
+        from .version import select_version
+
+        for name, spec in sorted(self.dependencies(package).items()):
+            if spec.startswith("npm:"):
+                name, separator, alias_spec = spec[4:].rpartition("@")
+                if not separator or not name:
+                    name, alias_spec = spec[4:], "*"
+                spec = alias_spec
+            document = self.document(name)
+            tags = document.get("dist-tags", {})
+            try:
+                version = tags.get(spec) or select_version(
+                    document.get("versions", {}), spec
+                )
+            except ValueError as error:
+                raise ValueError(f"{name}: {error}") from error
+            yield name, version

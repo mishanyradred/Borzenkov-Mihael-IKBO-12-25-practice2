@@ -5,11 +5,12 @@ import re
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from .fixture import TEST_NAME, load_fixture
+from .graph import build_graph, label
 from .registry import NpmRegistry
 from .version import VERSION
 
 NPM_NAME = re.compile(r"(?:@[a-z0-9_.-]+/)?[a-z0-9][a-z0-9_.-]*")
-TEST_NAME = re.compile(r"[A-Z]+")
 
 
 def depth(value):
@@ -59,17 +60,29 @@ def validate(parser, options):
         parser.error("--repository must be an HTTP(S) registry URL")
 
 
-def main():
-    """Print direct dependencies for the registry prototype."""
-    options = parse_args()
-    try:
-        if options.test:
-            raise ValueError("test repositories are supported from stage 3")
+def analyze(options):
+    """Choose the repository and build the reachable subgraph."""
+    if options.test:
+        fixture = load_fixture(options.repository)
+        root = (options.package, None)
+        if root not in fixture:
+            raise ValueError(f"test package not found: {options.package}")
+        neighbors = fixture.__getitem__
+    else:
         registry = NpmRegistry(options.repository)
-        package = (options.package, options.version)
-        for name, spec in sorted(registry.dependencies(package).items()):
-            print(f"{name}: {spec}")
-    except ValueError as error:
+        root = (options.package, options.version)
+        if options.exclude is None or options.exclude not in root[0]:
+            registry.dependencies(root)
+        neighbors = registry.neighbors
+    return build_graph(root, neighbors, options.max_depth, options.exclude)
+
+
+def main():
+    """Print the reachable adjacency list."""
+    try:
+        for package, edges in analyze(parse_args()).items():
+            print(f"{label(package)}: {', '.join(map(label, edges))}")
+    except (OSError, ValueError) as error:
         raise SystemExit(f"error: {error}") from error
 
 

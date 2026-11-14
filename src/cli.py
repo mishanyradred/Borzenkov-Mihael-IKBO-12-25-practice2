@@ -52,8 +52,13 @@ def validate(parser, options):
         if not Path(options.repository).is_file():
             parser.error("--repository must be an existing test file")
         return
+    validate_registry_url(parser, options.repository)
+
+
+def validate_registry_url(parser, address):
+    """Validate the HTTP(S) address of an npm registry."""
     try:
-        url = urlsplit(options.repository)
+        url = urlsplit(address)
         if url.scheme not in ("http", "https") or not url.hostname:
             raise ValueError
         if url.query or url.fragment or url.username is not None:

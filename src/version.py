@@ -3,6 +3,7 @@
 from operator import eq, ge, gt, le, lt
 import re
 
+CORE_PART_COUNT = 3
 NUMBER = r"(?:0|[1-9][0-9]*)"
 IDENT = r"[0-9A-Za-z-]+"
 PRE = rf"(?:{NUMBER}|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
@@ -36,12 +37,12 @@ def partial(value):
     if not match:
         raise ValueError(f"unsupported npm version range component: {value}")
     parts = []
-    for part in match.groups()[:3]:
+    for part in match.groups()[:CORE_PART_COUNT]:
         if part is None or part in "xX*":
             break
         parts.append(part)
     count = len(parts)
-    parts.extend(["0"] * (3 - count))
+    parts.extend(["0"] * (CORE_PART_COUNT - count))
     floor = ".".join(parts) + (match[4] or "")
     if not VERSION.fullmatch(floor):
         raise ValueError(f"invalid version in range: {value}")
@@ -52,7 +53,7 @@ def next_boundary(floor, position):
     """Create the exclusive upper bound for a numeric prefix."""
     parts = list(floor[0])
     parts[position] += 1
-    parts[position + 1:] = [0] * (2 - position)
+    parts[position + 1:] = [0] * (CORE_PART_COUNT - position - 1)
     return tuple(parts), False, ()
 
 
@@ -70,7 +71,7 @@ def expand(operator, value):
                 (i for i in range(count) if floor[0][i]), count - 1
             )
         return [(">=", floor), ("<", next_boundary(floor, index))]
-    if count == 3:
+    if count == CORE_PART_COUNT:
         return [(operator or "=", floor)]
     ceiling = next_boundary(floor, count - 1)
     return {

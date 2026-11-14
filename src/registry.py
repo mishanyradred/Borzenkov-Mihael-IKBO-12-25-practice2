@@ -8,6 +8,17 @@ from urllib.request import Request, urlopen
 from .version import select_version
 
 
+def dependency_target(name, spec):
+    """Return the package name and version range behind an npm alias."""
+    if not spec.startswith("npm:"):
+        return name, spec
+    target = spec.removeprefix("npm:")
+    name, separator, alias_spec = target.rpartition("@")
+    if not separator or not name:
+        return target, "*"
+    return name, alias_spec
+
+
 class NpmRegistry:
     """Retrieve and cache package documents from an npm registry."""
 
@@ -52,19 +63,18 @@ class NpmRegistry:
         for name, spec in sorted(self.dependencies(package).items()):
             if exclude is not None and exclude in name:
                 continue
-            if spec.startswith("npm:"):
-                name, separator, alias_spec = spec[4:].rpartition("@")
-                if not separator or not name:
-                    name, alias_spec = spec[4:], "*"
-                spec = alias_spec
-                if exclude is not None and exclude in name:
-                    continue
-            document = self.document(name)
-            tags = document.get("dist-tags", {})
-            try:
-                version = tags.get(spec) or select_version(
-                    document.get("versions", {}), spec
-                )
-            except ValueError as error:
-                raise ValueError(f"{name}: {error}") from error
-            yield name, version
+            name, spec = dependency_target(name, spec)
+            if exclude is not None and exclude in name:
+                continue
+            yield name, self.resolve_version(name, spec)
+
+    def resolve_version(self, name, spec):
+        """Resolve a registry tag or select a version matching a range."""
+        document = self.document(name)
+        tags = document.get("dist-tags", {})
+        try:
+            return tags.get(spec) or select_version(
+                document.get("versions", {}), spec
+            )
+        except ValueError as error:
+            raise ValueError(f"{name}: {error}") from error

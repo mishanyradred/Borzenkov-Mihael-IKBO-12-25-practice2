@@ -12,9 +12,8 @@ FIXTURE = Path(__file__).parent / "fixtures" / "repository.json"
 class GraphTests(unittest.TestCase):
     """Exercise graph operations using a versionless test repository."""
 
-    def setUp(self):
-        self.fixture = load_fixture(FIXTURE)
-        self.root = ("A", None)
+    fixture = load_fixture(FIXTURE)
+    root = ("A", None)
 
     def graph(self, depth=None, exclude=None):
         return build_graph(self.root, self.fixture.__getitem__, depth, exclude)

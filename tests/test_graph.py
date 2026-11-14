@@ -39,3 +39,16 @@ class GraphTests(unittest.TestCase):
         self.assertEqual(
             build_graph(root, self.fixture.__getitem__), {root: ()}
         )
+
+    def test_reverse_cycle_and_independent_parent(self):
+        from src.graph import reverse_edges
+
+        incoming = reverse_edges(self.fixture)
+        graph = build_graph(("D", None), incoming.__getitem__)
+        self.assertEqual(list(map(label, graph)), list("DBCAF"))
+        graph = build_graph(("D", None), incoming.__getitem__, 1)
+        self.assertEqual(list(map(label, graph)), list("DBC"))
+        graph = build_graph(
+            ("D", None), incoming.__getitem__, exclude="C"
+        )
+        self.assertEqual(list(map(label, graph)), list("DBA"))

@@ -36,3 +36,13 @@ def label(package):
     """Format a versioned package or a test graph node."""
     name, version = package
     return f"{name}@{version}" if version else name
+
+
+
+def reverse_edges(graph):
+    """Index incoming edges for every vertex in a finite repository."""
+    incoming = {package: [] for package in graph}
+    for package, targets in graph.items():
+        for target in targets:
+            incoming[target].append(package)
+    return incoming

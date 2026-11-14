@@ -6,8 +6,9 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from .fixture import TEST_NAME, load_fixture
-from .graph import build_graph, label, reverse_edges
+from .graph import build_graph
 from .registry import NpmRegistry
+from .render import ascii_tree, render
 from .version import VERSION
 
 NPM_NAME = re.compile(r"(?:@[a-z0-9_.-]+/)?[a-z0-9][a-z0-9_.-]*")
@@ -31,7 +32,8 @@ def parse_args(argv=None):
     parser.add_argument("--ascii", action="store_true")
     parser.add_argument("--max-depth", type=depth)
     parser.add_argument("--exclude")
-    parser.add_argument("--reverse", action="store_true")
+    parser.add_argument("--output", default="output")
+    parser.add_argument("--no-open", action="store_true")
     options = parser.parse_args(argv)
     validate(parser, options)
     return options
@@ -46,8 +48,6 @@ def validate(parser, options):
         parser.error("--version must be an exact semantic version")
     if options.exclude is not None and not options.exclude.strip():
         parser.error("--exclude must contain a nonblank substring")
-    if options.reverse and not options.test:
-        parser.error("--reverse requires a finite --test repository")
     if options.test:
         if not Path(options.repository).is_file():
             parser.error("--repository must be an existing test file")
@@ -70,30 +70,26 @@ def analyze(options):
         root = (options.package, None)
         if root not in fixture:
             raise ValueError(f"test package not found: {options.package}")
-        if options.reverse:
-            fixture = reverse_edges(fixture)
         neighbors = fixture.__getitem__
     else:
         registry = NpmRegistry(options.repository)
         root = (options.package, options.version)
         if options.exclude is None or options.exclude not in root[0]:
             registry.dependencies(root)
-        neighbors = registry.neighbors
+        def neighbors(package):
+            """Resolve dependencies that pass the name filter."""
+            return registry.neighbors(package, options.exclude)
     return build_graph(root, neighbors, options.max_depth, options.exclude)
 
 
 def main():
-    """Print the reachable adjacency list."""
+    """Analyze dependencies and visualize the resulting graph."""
     try:
         options = parse_args()
         graph = analyze(options)
-        if options.reverse:
-            for package in graph:
-                if package != (options.package, None):
-                    print(label(package))
-            return
-        for package, edges in graph.items():
-            print(f"{label(package)}: {', '.join(map(label, edges))}")
+        if options.ascii:
+            print(ascii_tree(graph))
+        render(graph, options.output, not options.no_open)
     except (OSError, ValueError) as error:
         raise SystemExit(f"error: {error}") from error
 

@@ -1,5 +1,6 @@
 """Define the syntax of an exact npm semantic version."""
 
+from operator import eq, ge, gt, le, lt
 import re
 
 NUMBER = r"(?:0|[1-9][0-9]*)"
@@ -52,7 +53,7 @@ def next_boundary(floor, position):
     parts = list(floor[0])
     parts[position] += 1
     parts[position + 1:] = [0] * (2 - position)
-    return tuple(parts), False, ((0, 0),)
+    return tuple(parts), False, ()
 
 
 def expand(operator, value):
@@ -77,7 +78,7 @@ def expand(operator, value):
         "=": [(">=", floor), ("<", ceiling)],
         ">": [(">=", ceiling)],
         ">=": [(">=", floor)],
-        "<": [("<", (floor[0], False, ((0, 0),)))],
+        "<": [("<", (floor[0], False, ()))],
         "<=": [("<", ceiling)],
     }[operator]
 
@@ -99,12 +100,10 @@ def comparator_set(expression):
 
 def matches(key, comparisons):
     """Apply a comparator set and npm's prerelease opt-in rule."""
-    from operator import eq, ge, gt, le, lt
-
     operations = {"=": eq, ">=": ge, ">": gt, "<=": le, "<": lt}
     if not key[1] and not any(
-        key[0] == target[0] and not target[1] and operation != "<"
-        for operation, target in comparisons
+        key[0] == target[0] and not target[1] and target[2]
+        for _, target in comparisons
     ):
         return False
     return all(operations[op](key, target) for op, target in comparisons)

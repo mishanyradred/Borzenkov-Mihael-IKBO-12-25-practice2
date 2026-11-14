@@ -5,6 +5,8 @@ from urllib.error import URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
+from .version import select_version
+
 
 class NpmRegistry:
     """Retrieve and cache package documents from an npm registry."""
@@ -45,16 +47,18 @@ class NpmRegistry:
         optional = metadata.get("optionalDependencies", {})
         return dependencies | optional
 
-    def neighbors(self, package):
+    def neighbors(self, package, exclude=None):
         """Resolve each declared dependency against registry versions."""
-        from .version import select_version
-
         for name, spec in sorted(self.dependencies(package).items()):
+            if exclude is not None and exclude in name:
+                continue
             if spec.startswith("npm:"):
                 name, separator, alias_spec = spec[4:].rpartition("@")
                 if not separator or not name:
                     name, alias_spec = spec[4:], "*"
                 spec = alias_spec
+                if exclude is not None and exclude in name:
+                    continue
             document = self.document(name)
             tags = document.get("dist-tags", {})
             try:
